@@ -11,6 +11,8 @@ unsigned int ip;
 
 void parseWithNumberOfTopLevelEntries(int number_of_entries) {
   for(int i = 0; i < number_of_entries; ++i) {
+    unsigned int number_of_files_in_dir = 0; // HACK
+
     // decompress the entry...
     unsigned int start_offset = ip;
 
@@ -69,9 +71,9 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
     if(file_flags & 0x40) {
       // directory!!
       printf("\tIs a directory.\n");
-      unsigned int number_of_files = GET2(bytes, ip);
+      number_of_files_in_dir = GET2(bytes, ip);
       ip += 2;
-      printf("\tDirectory has %i file(s)\n", number_of_files);
+      printf("\tDirectory has %i file(s)\n", number_of_files_in_dir);
 
       if(datafile_size == 0xffffffff) {
         // not sure what's going on here - some kind of spacer entry?
@@ -161,6 +163,8 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
     if(file_flags & 0x40) {
       // take a note that we have to build a directory,
       // then find the next file cluster...
+      ip = datastart;
+      number_of_entries += number_of_files_in_dir;
     } else {
       printf("TODO not-directory\n");
     }
@@ -228,5 +232,5 @@ int main(int argc, char* argv[]) {
   // jump to the first offset
   ip = first_entry_offset;
 
-  parseWithNumberOfTopLevelEntries(1); // TODO: get the right number.
+  parseWithNumberOfTopLevelEntries(entries_in_root);
 }
