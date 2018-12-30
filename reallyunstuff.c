@@ -9,16 +9,41 @@
 char* bytes;
 unsigned int ip;
 
+#define SIT5_ID 0xA5A5A5A5
+
+#define SIT5FLAGS_DIRECTORY     0x40
+#define SIT5FLAGS_CRYPTED       0x20
+#define SIT5FLAGS_RSRC_FORK     0x10
+
+#define SIT5_ARCHIVEVERSION 5
+
+#define SIT5_ARCHIVEFLAGS_14BYTES 0x10
+#define SIT5_ARCHIVEFLAGS_20      0x20
+#define SIT5_ARCHIVEFLAGS_40      0x40
+#define SIT5_ARCHIVEFLAGS_CRYPTED 0x80
+
+#define SIT5_KEY_LENGTH 5  /* 40 bits */
+
+const char* get_name_of_method(int stuffit_method) {
+  switch(stuffit_method) {
+    case 15:
+      return "Arsenic";
+    default:
+      return "Dunno";
+  }
+}
+
 void parseWithNumberOfTopLevelEntries(int number_of_entries) {
   for(int i = 0; i < number_of_entries; ++i) {
     unsigned int number_of_files_in_dir = 0; // HACK
+    unsigned char datamethod = 0;
 
     // decompress the entry...
     unsigned int start_offset = ip;
 
     unsigned int sitid = GET4(bytes, ip);
     ip += 4;
-    if(sitid != 0xA5A5A5A5) { printf("SIT ID wrong (%x)!\n", sitid); exit(1); }
+    if(sitid != SIT5_ID) { printf("SIT ID wrong (%x)!\n", sitid); exit(1); }
     unsigned char version = bytes[ip];
     ip += 1;
     printf("version %i\n", version);
@@ -68,7 +93,7 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
 
     printf("file flags: %x\n", file_flags);
 
-    if(file_flags & 0x40) {
+    if(file_flags & SIT5FLAGS_DIRECTORY) {
       // directory!!
       printf("\tIs a directory.\n");
       number_of_files_in_dir = GET2(bytes, ip);
@@ -81,9 +106,9 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
       }
     }
     else {
-      unsigned char datamethod = bytes[ip]; ip += 1;
+      datamethod = bytes[ip]; ip += 1;
       unsigned char passlen = bytes[ip]; ip += 1;
-      if(file_flags & 0x20 && datafile_size) { // encrypted
+      if(file_flags & SIT5FLAGS_CRYPTED && datafile_size) { // encrypted
         printf("\tIs encrypted.\n");
         if(passlen != 5) { //SIT5_KEY_LENGTH
           printf("\tKey length is wrong. Unarchiver would have barfed here.\n");
@@ -149,24 +174,58 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
       printf("Has resource!\n");
       resource_length = GET4(bytes, ip); ip += 4;
       resource_crunched_length = GET4(bytes, ip); ip += 4;
-      resource_crc = GET4(bytes, ip); ip += 4;
-      resource_length = GET2(bytes, ip); ip += 2;
+      resource_crc = GET2(bytes, ip); ip += 2;
       ip += 2; // skip 2 bytes
       resource_method = bytes[ip]; ip += 1;
 
-      int passlen = bytes[ip]; ip += 1;
+      unsigned char passlen = bytes[ip]; ip += 1;
 
-      printf("TODO\n"); exit(1);
+      if((file_flags & SIT5FLAGS_CRYPTED) && resource_length) {
+        if(passlen != SIT5_KEY_LENGTH) {
+          printf("passlen not right length. unarchiver would have barfed\n"); exit(1);
+        }
+        printf("TODO: get resource key\n"); exit(1);
+      }
+      else if(passlen) {
+        printf("ip = %i passlen was specified (%x) but not encrypted?\n", (ip - 1), passlen);
+        exit(1);
+      }
     }
 
     unsigned int datastart = ip;
-    if(file_flags & 0x40) {
+    if(file_flags & SIT5FLAGS_DIRECTORY) {
       // take a note that we have to build a directory,
       // then find the next file cluster...
       ip = datastart;
       number_of_entries += number_of_files_in_dir;
     } else {
-      printf("TODO not-directory\n");
+      if(has_resource) {
+        printf("Resource to extract\n");
+        printf("\tMethod = %i (%s)\n", resource_method, get_name_of_method(resource_method));
+        printf("\tLength = %i (%i compressed)\n", resource_length, resource_crunched_length);
+        printf("\tCRC = %i\n", resource_crc);
+
+        // add to extraction plan
+        unsigned int resource_offset = datastart;
+      }
+
+      if(datafile_size || !has_resource) {
+        printf("Data file to extract\n");
+        printf("\tMethod = %i (%s)\n", datamethod, get_name_of_method(datamethod));
+        printf("\tLength = %i (%i compressed)\n", datafile_size, crunched_size);
+        printf("\tCRC = %i\n", stuffItCRC16);
+
+        // add to extraction plan
+        unsigned int data_offset = datastart + resource_crunched_length;
+
+        // let's just dump this shit out to file, we'll deal with it later
+        FILE* output = fopen(this_filename, "wb");
+        fwrite(&bytes[data_offset], crunched_size, 1, output); // not efficient but who cares
+        fclose(output);
+      }
+
+      // Seek
+      ip = datastart + resource_crunched_length + crunched_size;
     }
   }
 }
@@ -227,7 +286,7 @@ int main(int argc, char* argv[]) {
   if(flags & 0x10) { printf("\tSkip 14 bytes\n"); } // doesn't matter...? we just jump to the first archive offset anyway
   if(flags & 0x20) { printf("\t0x20\n"); }
   if(flags & 0x40) { printf("\t0x40\n"); }
-  if(flags & 0x80) { printf("\tEncrypted?\n"); }
+  if(flags & SIT5FLAGS_CRYPTED) { printf("\tEncrypted?\n"); }
 
   // jump to the first offset
   ip = first_entry_offset;
