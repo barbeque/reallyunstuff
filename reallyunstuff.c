@@ -227,12 +227,16 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
         // let's just dump this shit out to file, we'll deal with it later
         FILE* output = fopen(this_filename, "wb");
         fwrite(&bytes[data_offset], crunched_size, 1, output); // not efficient but who cares
+        assert(ftell(output) == crunched_size);
         fclose(output);
         printf("... dumped.\n"); // 451709 should be the next offset maybe? oh it's just an icon file who cares
       }
 
-      // Seek
+      // Seek to start of next file?
       ip = datastart + resource_crunched_length + crunched_size;
+      printf("Jumping to %i for next record\n", ip);
+      // for some reason this is offset_next_entry + 256, but even offset_next_entry won't work...
+      // it's 22784 away from 451709.. is the crunched_size wrong?
     }
   }
 }
