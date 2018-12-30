@@ -139,8 +139,11 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
 
       char* comment = (char*)malloc(comment_length + 1);
       strncpy(comment, &bytes[ip], comment_length);
+      comment[comment_length] = '\0';
       printf("The comment is = [%s]\n", comment);
     }
+
+    assert(ip == header_end);
 
     unsigned int something = GET2(bytes, ip);
     ip += 2;
@@ -165,6 +168,7 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
       printf("v1: Skipping 22 bytes\n");
       ip += 22;
     } else {
+      printf("Not v1: Skipping 18 bytes\n");
       ip += 18;
     }
 
@@ -196,11 +200,11 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
 
     unsigned int datastart = ip;
     if(file_flags & SIT5FLAGS_DIRECTORY) {
-      // take a note that we have to build a directory,
-      // then find the next file cluster...
+      // directories contain files, so get the files in it...
       ip = datastart;
       number_of_entries += number_of_files_in_dir;
     } else {
+      // it's a "file."
       if(has_resource) {
         printf("Resource to extract\n");
         printf("\tMethod = %i (%s)\n", resource_method, get_name_of_method(resource_method));
