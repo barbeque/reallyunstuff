@@ -79,4 +79,38 @@ int main(int argc, char* argv[]) {
   unsigned int header_size = GET2(bytes,ip);
   ip += 2;
   printf("header size %i\n", header_size);
+  printf("??? system ID = %i\n", bytes[ip]); ip += 1;
+  printf("type = %i\n", bytes[ip]); ip += 1;
+  unsigned int creation_date = GET4(bytes, ip);
+  ip += 4;
+  printf("creation date = %u\n", creation_date);
+  unsigned int modification_date = GET4(bytes, ip);
+  ip += 4;
+  printf("modified date = %u\n", modification_date);
+  unsigned int offset_prev_entry = GET4(bytes, ip);
+  ip += 4;
+  printf("offset_prev_entry = %u\n", offset_prev_entry);
+  unsigned int offset_next_entry = GET4(bytes, ip);
+  ip += 4;
+  printf("offset_next_entry = %u\n", offset_next_entry);
+  unsigned int offset_dir_entry = GET4(bytes, ip);
+  ip += 4;
+  printf("offset_dir_entry = %u\n", offset_dir_entry);
+  unsigned int filename_length = GET2(bytes, ip);
+  ip += 2;
+  printf("Filename length = %u\n", filename_length);
+  unsigned int header_crc = GET2(bytes, ip);
+  ip += 2;
+  printf("Header CRC = %u\n", header_crc);
+  unsigned int datafile_size = GET4(bytes, ip);
+  ip += 4;
+  printf("data file size = %u\n", datafile_size); // seems low
+  unsigned int crunched_size = GET4(bytes, ip);
+  ip += 4;
+  printf("crunched size = %u\n", crunched_size);
+  ip += 4; // skip old crc16 and ???
+  unsigned char algo = bytes[ip];
+  ip += 1;
+  printf("Algorithm = %i\n", algo);
+  if(algo == 0) { printf("\tNone\n"); }
 }
