@@ -1,11 +1,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cassert>
 
 #define GET4(buffer, i) (int)((unsigned char)(buffer[i + 0]) << 24 | (unsigned char)(buffer[i + 1]) << 16 | (unsigned char)(buffer[i + 2]) << 8 | (unsigned char)(buffer[i + 3]))
 #define GET2(buffer, i) (int)((unsigned char)(buffer[i + 0]) << 8 | (unsigned char)(buffer[i + 1]))
 
 int main(int argc, char* argv[]) {
+  // sanity checks
+  unsigned char testbuf[] = {0xff, 0xff, 0xdd, 0xcc};
+  assert(GET2(testbuf, 0) == 0x0000ffff);
+  assert(GET4(testbuf, 0) == 0xffffddcc);
+
+  // ok let's go
   if(argc < 2) {
 	  printf("Need argument.\n"); return 2;
   }
@@ -24,17 +31,10 @@ int main(int argc, char* argv[]) {
 
   const char *match="StuffIt (c)1997-\xFF\xFF\xFF\xFF Aladdin Systems, Inc., http://www.aladdinsys.com/StuffIt/\x0d\x0a";
 
-  for(unsigned int i = 0; i < strlen(match); ++i) {
-    if(bytes[i] != match[i] && match[i] != '\xFF') {
-      printf("Wrong character at %i %i vs. %i\n", i, bytes[i], match[i]);
-      printf("%s\n", match);
-      for(int j = 0; j < i; ++j) {
-        printf(" ");
-      }
-      printf("^\n");
-      return 1;
-    }
-  }
+  for(unsigned int i = 0; i < strlen(match); ++i) { if(bytes[i] != match[i] &&
+  match[i] != '\xFF') { printf("Wrong character at %i %i vs. %i\n", i, bytes[i],
+  match[i]); printf("%s\n", match); for(int j = 0; j < i; ++j) { printf(" "); }
+  printf("^\n"); return 1; } }
 
   printf("Header OK, continuing...\n");
 
@@ -59,12 +59,12 @@ int main(int argc, char* argv[]) {
 
   unsigned char flags = bytes[83];
   printf("Flags = %x\n", flags);
-  if(flags & 0x10) { printf("\tSkip 14 bytes\n"); } // doesn't matter... we just jump to the first archive offset anyway
+  if(flags & 0x10) { printf("\tSkip 14 bytes\n"); } // doesn't matter...? we just jump to the first archive offset anyway
   if(flags & 0x20) { printf("\t0x20\n"); }
   if(flags & 0x40) { printf("\t0x40\n"); }
   if(flags & 0x80) { printf("\tEncrypted?\n"); }
 
-	
+
   // decompress the first entry...
   ip = first_entry_offset;
   unsigned int sitid = GET4(bytes, ip);
@@ -73,14 +73,18 @@ int main(int argc, char* argv[]) {
   unsigned char version = bytes[ip];
   ip += 1;
   printf("version %i\n", version);
-  unsigned char unknown = bytes[ip];
+  unsigned char unknown = bytes[ip]; // skip byte
   ip += 1;
   printf("??? %i\n", unknown);
   unsigned int header_size = GET2(bytes,ip);
   ip += 2;
   printf("header size %i\n", header_size);
-  printf("??? system ID = %i\n", bytes[ip]); ip += 1;
-  printf("type = %i\n", bytes[ip]); ip += 1;
+
+  ip += 1; // skip byte
+
+  unsigned char file_flags = bytes[ip]; ip += 1;
+
+  printf("type = %x\n", bytes[ip]); ip += 1;
   unsigned int creation_date = GET4(bytes, ip);
   ip += 4;
   printf("creation date = %u\n", creation_date);
@@ -108,9 +112,34 @@ int main(int argc, char* argv[]) {
   unsigned int crunched_size = GET4(bytes, ip);
   ip += 4;
   printf("crunched size = %u\n", crunched_size);
-  ip += 4; // skip old crc16 and ???
-  unsigned char algo = bytes[ip];
-  ip += 1;
-  printf("Algorithm = %i\n", algo);
-  if(algo == 0) { printf("\tNone\n"); }
+  ip += 2; // skip old crc16
+
+  printf("file flags: %x\n", file_flags);
+
+  if(flags & 0x40) {
+    // directory!!
+    printf("\tIs a directory.\n");
+    // it's not actually a directory so who cares
+    printf("TODO\n"); return 1;
+  }
+  else {
+    unsigned char datamethod = bytes[ip]; ip += 1;
+    unsigned char passlen = bytes[ip]; ip += 1;
+    if(flags & 0x20 && datafile_size) { // encrypted
+      printf("\tIs encrypted.\n");
+      if(passlen != 5) { //SIT5_KEY_LENGTH
+        printf("\tKey length is wrong. Unarchiver would have barfed here.\n");
+        printf("TODO\n"); return 1; // the file we want isn't encrypted.
+      }
+    }
+    else if(passlen) {
+      printf("\tPasslen is non-zero (%x) despite not being encrypted. Unarchiver would have barfed at offset (%i).\n", passlen, (ip - 1));
+      return 1; // This was wrong in my test file, but I fixed it and Unarchiver was still mad.
+    }
+  }
+
+  // Now we can read the name.
+  char* this_filename = (char*)malloc(filename_length); // does stuffit not null-terminate?
+  strncpy(this_filename, &bytes[ip], filename_length);
+  printf("filename = [%s]\n", this_filename);
 }
