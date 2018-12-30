@@ -2,8 +2,14 @@
 #include <cstdlib>
 #include <cstring>
 
+#define GET4(buffer, i) (int)((unsigned char)(buffer[i + 0]) << 24 | (unsigned char)(buffer[i + 1]) << 16 | (unsigned char)(buffer[i + 2]) << 8 | (unsigned char)(buffer[i + 3]))
+#define GET2(buffer, i) (int)((unsigned char)(buffer[i + 0]) << 8 | (unsigned char)(buffer[i + 1]))
+
 int main(int argc, char* argv[]) {
-  FILE* fp = fopen("/Users/mike/Downloads/DoveEthernetkaart (1).sit", "rb");
+  if(argc < 2) {
+	  printf("Need argument.\n"); return 2;
+  }
+  FILE* fp = fopen(argv[1], "rb");
   if(!fp) {
     fprintf(stderr, "Not found.\n");
     return 1;
@@ -31,4 +37,46 @@ int main(int argc, char* argv[]) {
   }
 
   printf("Header OK, continuing...\n");
+
+  int ip = 80; // skip ahead past header
+  ip += 4; // skip ahead past ???
+  int total_archive_size = GET4(bytes, ip);
+  ip += 4;
+  printf("Total archive size: %i\n", total_archive_size);
+  int some_entry_offset = GET4(bytes, ip);
+  ip += 4;
+  printf("Some entry ??? offset: %i\n", some_entry_offset);
+  int entries_in_root = GET2(bytes, ip);
+  ip += 2;
+  printf("# of entries in root: %i\n", entries_in_root);
+  int first_entry_offset = GET4(bytes, ip);
+  ip += 4;
+  printf("First entry offset: %i\n", first_entry_offset);
+
+  if(bytes[82] != 5) {
+	  printf("SIT VERSION: something is wrong\n"); return 1;
+	}
+
+  unsigned char flags = bytes[83];
+  printf("Flags = %x\n", flags);
+  if(flags & 0x10) { printf("\tSkip 14 bytes\n"); } // doesn't matter... we just jump to the first archive offset anyway
+  if(flags & 0x20) { printf("\t0x20\n"); }
+  if(flags & 0x40) { printf("\t0x40\n"); }
+  if(flags & 0x80) { printf("\tEncrypted?\n"); }
+
+	
+  // decompress the first entry...
+  ip = first_entry_offset;
+  unsigned int sitid = GET4(bytes, ip);
+  ip += 4;
+  if(sitid != 0xA5A5A5A5) { printf("SIT ID wrong (%x)!\n", sitid); return 1; }
+  unsigned char version = bytes[ip];
+  ip += 1;
+  printf("version %i\n", version);
+  unsigned char unknown = bytes[ip];
+  ip += 1;
+  printf("??? %i\n", unknown);
+  unsigned int header_size = GET2(bytes,ip);
+  ip += 2;
+  printf("header size %i\n", header_size);
 }

@@ -1,0 +1,4 @@
+things that could raise a data format exception:
+
+- SIT_ID is 0xb4b4b4b4 not 0xa5a5a5a5 (fixed, no diff)
+- SIT version at +82 in the file is 5 (yes it is - fine)
