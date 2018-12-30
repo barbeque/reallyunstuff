@@ -1,2 +1,3 @@
 all:
-	g++ -g reallyunstuff.c && ./a.out DoveEthernetkaart\ \(1\).sit
+	g++ -g reallyunstuff.c -o unstuff
+	g++ -g fakestuff.c -o stuff
