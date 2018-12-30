@@ -82,9 +82,8 @@ int main(int argc, char* argv[]) {
 
   ip += 1; // skip byte
 
-  unsigned char file_flags = bytes[ip]; ip += 1;
+  unsigned char file_flags = bytes[ip]; ip += 1; // we'll need this later
 
-  printf("type = %x\n", bytes[ip]); ip += 1;
   unsigned int creation_date = GET4(bytes, ip);
   ip += 4;
   printf("creation date = %u\n", creation_date);
@@ -112,15 +111,19 @@ int main(int argc, char* argv[]) {
   unsigned int crunched_size = GET4(bytes, ip);
   ip += 4;
   printf("crunched size = %u\n", crunched_size);
-  ip += 2; // skip old crc16
+  ip += 4; // skip old crc16
 
   printf("file flags: %x\n", file_flags);
 
-  if(flags & 0x40) {
+  if(file_flags & 0x40) {
     // directory!!
     printf("\tIs a directory.\n");
-    // it's not actually a directory so who cares
-    printf("TODO\n"); return 1;
+    unsigned int number_of_files = GET2(bytes, ip);
+    printf("\tDirectory has %i file(s)\n", number_of_files);
+    if(datafile_size == 0xffffffff) {
+      // not sure what's going on here
+      printf("Stub entry detected. TODO\n"); return 1;
+    }
   }
   else {
     unsigned char datamethod = bytes[ip]; ip += 1;
