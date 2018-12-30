@@ -111,7 +111,10 @@ int main(int argc, char* argv[]) {
   unsigned int crunched_size = GET4(bytes, ip);
   ip += 4;
   printf("crunched size = %u\n", crunched_size);
-  ip += 4; // skip old crc16
+  unsigned int stuffItCRC16 = GET2(bytes, ip);
+  ip += 2;
+  printf("Stuffit CRC16 = %i\n", stuffItCRC16);
+  ip += 2; // skip the 2-byte thing after it
 
   printf("file flags: %x\n", file_flags);
 
@@ -119,9 +122,11 @@ int main(int argc, char* argv[]) {
     // directory!!
     printf("\tIs a directory.\n");
     unsigned int number_of_files = GET2(bytes, ip);
+    ip += 2;
     printf("\tDirectory has %i file(s)\n", number_of_files);
+
     if(datafile_size == 0xffffffff) {
-      // not sure what's going on here
+      // not sure what's going on here - some kind of spacer entry?
       printf("Stub entry detected. TODO\n"); return 1;
     }
   }
@@ -142,7 +147,8 @@ int main(int argc, char* argv[]) {
   }
 
   // Now we can read the name.
-  char* this_filename = (char*)malloc(filename_length); // does stuffit not null-terminate?
+  char* this_filename = (char*)malloc(filename_length + 1); // does stuffit not null-terminate?
   strncpy(this_filename, &bytes[ip], filename_length);
+  this_filename[filename_length] = '\0';
   printf("filename = [%s]\n", this_filename);
 }
