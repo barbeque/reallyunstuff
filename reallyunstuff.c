@@ -35,6 +35,8 @@ const char* get_name_of_method(int stuffit_method) {
 
 void parseWithNumberOfTopLevelEntries(int number_of_entries) {
   for(int i = 0; i < number_of_entries; ++i) {
+    printf("== ENTRY %i ==\n", i);
+
     unsigned int number_of_files_in_dir = 0; // HACK
     unsigned char datamethod = 0;
 
@@ -43,7 +45,7 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
 
     unsigned int sitid = GET4(bytes, ip);
     ip += 4;
-    if(sitid != SIT5_ID) { printf("SIT ID wrong (%x)!\n", sitid); exit(1); }
+    if(sitid != SIT5_ID) { printf("ip = %i SIT ID wrong (%x)!\n", (ip - 4), sitid); exit(1); }
     unsigned char version = bytes[ip];
     ip += 1;
     printf("version %i\n", version);
@@ -222,6 +224,7 @@ void parseWithNumberOfTopLevelEntries(int number_of_entries) {
         FILE* output = fopen(this_filename, "wb");
         fwrite(&bytes[data_offset], crunched_size, 1, output); // not efficient but who cares
         fclose(output);
+        printf("... dumped.\n"); // 451709 should be the next offset maybe? oh it's just an icon file who cares
       }
 
       // Seek
